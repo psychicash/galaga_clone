@@ -6,6 +6,12 @@ import random
 from math import sin, cos, pi, atan2, degrees
 import os.path
 from os import path
+import xlsxwriter
+import xlrd
+
+
+
+
 
 
 pygame.init()
@@ -67,6 +73,7 @@ def project(pos, angle, distance):
     """
     return (pos[0] + (cos(angle) * distance),
             pos[1] - (sin(angle) * distance))
+
 
 
 
@@ -283,37 +290,91 @@ class Level(object):
 
 #TODO finish highscore object (CWI)
 class high_score(object):
+
     def __init__(self):
-        self.highscore = {'aaa': 0}
+        self.default_hs = [['aaa', 20000]]
+        self.high_scores =[]
+        self.load_hs_info()
 
 
 
 
-        if path.exists('./data/hs.json') == True:
-            with open('./data/hs.json', 'r') as read_file:
-                self.highscore = json.load(read_file)
-            if self.highscore[0] < 20000:
-                self.highscore = {'aaa': 20000}
-                outfile = open('./data/hs.json', 'w')
-                json.dump(self.highscore, outfile)
-        elif path.exists('./data/hs.json') == False:
-            self.highscore = {'aaa': 20000}
-            outfile = open('./data/hs.json', 'w')
-            json.dump(self.highscore, outfile)
+    def check_score(self, score):
+        self.high_scores.append(['bbb', score])
+        l = len(self.high_scores)
+        for i in range(0, l):
+            for j in range(0, l - i - 1):
+                if (self.high_scores[j][1] > self.high_scores[j+1][1]):
+                    tempo = self.high_scores[j]
+                    self.high_scores[j] = self.high_scores[j+1]
+                    self.high_scores[j+1] = tempo
 
-    def save_hs(self):
-        with open('./data/hs.json', 'w') as write_file:
-            json.dump(self.highscore, write_file)
+        return self.high_scores[0][1]
 
+    def display_hs():
 
+        pass
 
-
-
-        #should read highscore from file and display it at the top of the screen
+    def hs_enter_name():
         pass
 
 
-#TODO add high score to game object
+    def save_hs_info(self):
+        #writing to xlsx files - https://xlsxwriter.readthedocs.io/
+        l = len(self.high_scores)
+        for i in range(0, l):
+            for j in range(0, 1-i-1):
+                if (self.high_scores[j][1] == 'bbb'):
+                    self.high_scores[j][0] = hs_enter_name()
+
+
+        hs_workbook = xlsxwriter.Workbook('./data/hsdata.xlsx')
+        hs_worksheet = hs_workbook.add_worksheet()
+
+        row = 0
+        col = 0
+
+        for hs_p, hs in (self.high_scores):
+            hs_worksheet.write(row, col, hs_p)
+            hs_worksheet.write(row, col + 1, hs)
+        hs_workbook.close()
+
+
+
+    def load_hs_info(self):
+        #reading xlsx files - https://www.geeksforgeeks.org/reading-excel-file-using-python/
+        try:
+            xlrd_loc = ('./data/hsdata.xlsx')
+            xlrd_wb = xlrd.open_workbook(xlrd_loc)
+            xlrd_sheet = xlrd_wb.sheet_by_index(0)
+            xlrd_sheet.cell_value(0, 0)
+        except FileNotFoundError:
+            self.high_scores = self.default_hs
+            self.save_hs_info()
+            self.load_hs_info()
+        else:
+            pass
+
+        xlrd_loc = ('./data/hsdata.xlsx')
+        xlrd_wb = xlrd.open_workbook(xlrd_loc)
+        xlrd_sheet = xlrd_wb.sheet_by_index(0)
+        xlrd_sheet.cell_value(0,0)
+
+        tot_num_rows = xlrd_sheet.nrows
+        tot_num_col = xlrd_sheet.ncols
+
+        for row in range(tot_num_rows):
+            self.high_scores.append(xlrd_sheet.row_values(row))
+
+        if self.high_scores == []:
+            self.high_scores = self.default_hs
+
+
+
+        pass
+
+
+#TODO add high score to game object as a sprite and display it :D
 
 class Explosion(pygame.sprite.Sprite):
     def __init__(self, pos1, pos2):
@@ -333,6 +394,7 @@ class Explosion(pygame.sprite.Sprite):
             self.frame += 1
             if self.frame == len(explosion_anim):
                 self.kill()
+
             else:
                 pos1 = self.rect.centerx
                 pos2 = self.rect.centery
@@ -365,9 +427,11 @@ class Game(object):                                     #class reps an instance 
     def __init__(self):                                 #creates all attributes of the game
         set_explo()
         self.score = 0
-        #self.hscore = high_score()
+        self.high_score = high_score()
         self.score_list = pygame.sprite.Group()
         self.game_over = False
+
+
         #create sprite lists
         self.all_sprites_list = pygame.sprite.Group()
         self.enemy_bullet_list = pygame.sprite.Group()
@@ -379,6 +443,7 @@ class Game(object):                                     #class reps an instance 
         self.player = Player()  #create the player
         self.player_list = pygame.sprite.Group()
         self.player_list.add(self.player)
+        self.enemy1 = Enemy(start_pos=[(SCREEN_WIDTH + 20), (SCREEN_HEIGHT - 10)], tar_pos=[(SCREEN_WIDTH // 2), 100])
         self.enemy_list = pygame.sprite.Group()
         self.enemy_list.add(self.enemy1)                #todo remove and add elsewhere...
         #self.all_sprites_list.add(self.hscore)         #todo impliment
@@ -389,7 +454,8 @@ class Game(object):                                     #class reps an instance 
         pygame.event.pump()
         keyinput = pygame.key.get_pressed()
         if keyinput[pygame.K_ESCAPE]:
-            print(self.hscore.highscore)
+            print(self.high_score.check_score(self.score))
+            self.high_score.save_hs_info()
             raise SystemExit
         if keyinput[pygame.K_LEFT]:
             self.player.move_x(-1)
@@ -416,8 +482,30 @@ class Game(object):                                     #class reps an instance 
 
             self.all_sprites_list.update()              #move all sprites
 
+
             #see if the player block has collided with stuff
-            #TODO player_hit_list = pygame.sprite.spritecollide(self.player, self.enemy_list, True)
+            #Checks to see if fire - aka enemy bullets hit player
+            for fire in self.enemy_bullet_list:
+                player_hit_list = pygame.sprite.spritecollide(fire, self.player_list, True)
+                for self.player in player_hit_list:
+                    self.player.lives -= 1
+                    self.enemy_bullet_list.remove(fire)
+                    self.explo = Explosion(self.player.rect.centerx, self.player.rect.centery)
+                    self.all_sprites_list.add(self.explo)
+                    self.player.kill()
+
+            #checks to see if player has hit something.
+            for self.player in self.player_list:
+                enemy_hit_list = pygame.sprite.spritecollide(self.player, self.enemy_list, True)
+                for self.enemy in enemy_hit_list:
+                    if self.player.creation_time > 20:
+                        self.explo = Explosion(self.player.rect.centerx, self.player.rect.centery)
+                        self.player.lives -= 1
+                        self.player.kill()
+                        #todo fix player respawn after death
+
+
+
 
             for bullet in self.bullet_list:
                 enemy_hit_list = pygame.sprite.spritecollide(bullet, self.enemy_list, True)
@@ -426,6 +514,7 @@ class Game(object):                                     #class reps an instance 
                     self.all_sprites_list.remove(bullet)
                     self.score_up = 100
                     self.score += self.score_up
+                    self.high_score.check_score(self.score)
                     self.enemy.hp -= 1
                     if self.enemy.hp <= 0:
                         self.explo = Explosion(self.enemy.rect.centerx, self.enemy.rect.centery)
@@ -434,6 +523,9 @@ class Game(object):                                     #class reps an instance 
                         self.all_sprites_list.add(score_fly)
                         self.enemy.kill()
                         print(self.score)
+                        self.enemy1 = Enemy(start_pos=[(SCREEN_WIDTH + 20), (SCREEN_HEIGHT - 10)],
+                                            tar_pos=[(SCREEN_WIDTH // 2), 100])
+                        self.enemy_list.add(self.enemy1)  # todo remove and add elsewhere...
                         #print(self.hscore)
 
 
@@ -443,19 +535,6 @@ class Game(object):                                     #class reps an instance 
                     self.bullet_list.remove(bullet)
                     self.all_sprites_list.remove(bullet)
 
-            for self.player in self.player_list:
-                enemy_hit_list = pygame.sprite.spritecollide(self.player, self.enemy_list, True)
-                for self.enemy in enemy_hit_list:
-                    if self.player.creation_time > 20:
-                        self.explo = Explosion(self.player.rect.centerx, self.player.rect.centery)
-                        self.player.lives -= 1
-                        self.player.kill()
-                        if self.player.lives >= 0:
-                            self.player = Player()
-                            self.player_list.add(self.player)
-                            self.all_sprites_list.add(self.player)
-                        elif self.player.lives < 0:
-                            self.game_over = True
 
 
 
@@ -469,6 +548,10 @@ class Game(object):                                     #class reps an instance 
     def display_frame(self, screen):
             screen.fill(WHITE)
             screen.blit(BG1, [0,0])
+
+            #self.hscore.display_hs()
+            #self.player.display_lives()
+            #todo display player lives and level information
 
 
             if self.game_over:                      #game over text on screen
@@ -542,3 +625,4 @@ if __name__ == '__main__':
 #TODO add boss level, sprites, logic
 #TODO add powerups
 #TODO add logic for ship capture and two ship fighting
+
